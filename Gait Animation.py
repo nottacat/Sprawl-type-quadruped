@@ -25,12 +25,12 @@ bodyr=6.66  #radius of main body (centre of pelvis to hip)
 bodylen=sqrt(2)*bodyr   #length of body from hip to closest hip
 
 #phase displacements for each leg
-nOffs=[0,0.75,0.5,0.25]
+nOffs=[0,0.25,0.5,0.75]
 
 H=l2-l1+1                 #pelvis height from z=0
 SW=8                        #distance from foot tip path to hip axis perpendicular to said path [step width]
 PL=8                        #length of foot tip path from start to end  [pace length]
-PS=6                      #minimum distance to closest foot path  [pace seperation]
+PS=0                        #minimum distance to closest foot path  [pace seperation]
 theta=-pi/2                 #direction of motion
 
 timeMod=1       #speed of program
@@ -103,6 +103,31 @@ def formulaBird(n,ymult,Bmod,z):
 
     return new_bearing+Bmod, new_modulus-l0
 
+#Draw triangle between 3 feet touching ground, if a foot is raised
+def drawContactTriangle(legs,contact_triangle):
+    if legs[0].z > 0:
+        contact_triangle.set_data(
+            [legs[1].foot_coords[0], legs[2].foot_coords[0], legs[3].foot_coords[0],legs[1].foot_coords[0]],
+            [legs[1].foot_coords[1], legs[2].foot_coords[1], legs[3].foot_coords[1],legs[1].foot_coords[1]]
+        )
+
+    if legs[1].z > 0:
+        contact_triangle.set_data(
+            [legs[0].foot_coords[0], legs[2].foot_coords[0], legs[3].foot_coords[0],legs[0].foot_coords[0]],
+            [legs[0].foot_coords[1], legs[2].foot_coords[1], legs[3].foot_coords[1],legs[0].foot_coords[1]]
+        )
+
+    if legs[2].z > 0:
+        contact_triangle.set_data(
+            [legs[0].foot_coords[0], legs[1].foot_coords[0], legs[3].foot_coords[0],legs[0].foot_coords[0]],
+            [legs[0].foot_coords[1], legs[1].foot_coords[1], legs[3].foot_coords[1],legs[0].foot_coords[1]]
+        )
+
+    if legs[3].z > 0:
+        contact_triangle.set_data(
+            [legs[0].foot_coords[0], legs[1].foot_coords[0], legs[2].foot_coords[0],legs[0].foot_coords[0]],
+            [legs[0].foot_coords[1], legs[1].foot_coords[1], legs[2].foot_coords[1],legs[0].foot_coords[1]]
+        )
 
 
 class leg():
@@ -126,6 +151,9 @@ class leg():
         self.a1,self.a2=formulaSideAngles(l1-l2,self.z,H)
 
         if allowMatplotlib:
+
+            self.foot_coords = [0,0]
+            
             self.color=colors[index]
 
             #   Draw initial BE view leg
@@ -173,16 +201,18 @@ class leg():
         self.a1,self.a2=formulaSideAngles(self.modulus,self.z,H)
                   
         if allowMatplotlib:
+
+            #   Calculate next BE view foot coordinates
+            self.foot_coords = [(self.modulus+l0) * sin(self.bearing+pi*self.index/2)+bodyr*sin(self.index*pi/2), (self.modulus+l0) * cos(self.bearing+pi*self.index/2)+bodyr*cos(self.index*pi/2)]
             
             #   Calculate next side view leg coordinates
             x1,y1,x2,y2=formulaSide(self.a1,self.a2,H)
 
-
             #   Update BE leg view
             self.line.set_data([bodyr*sin(self.index*pi/2),
-                                (self.modulus+l0) * sin(self.bearing+pi*self.index/2)+bodyr*sin(self.index*pi/2)],
+                                self.foot_coords[0]],
                                [bodyr*cos(self.index*pi/2),
-                                (self.modulus+l0) * cos(self.bearing+pi*self.index/2)+bodyr*cos(self.index*pi/2)])
+                                self.foot_coords[1]])
 
             # #   Draw black dot on foot position in BE view
             # ax.plot((self.modulus+l0) * sin(self.bearing+pi*self.index/2)+bodyr*sin(self.index*pi/2),
@@ -250,6 +280,9 @@ if allowMatplotlib:
 #init legs
 legs=[leg(0),leg(1),leg(2),leg(3)]
 
+#create contact triangle
+contact_triangle, = ax.plot([0,0,0,0],[0,0,0,0],'orange')
+
 #main loop
 while True:
     T=(time()*10-st)*timeMod%50
@@ -258,4 +291,5 @@ while True:
         st = time()*10
     for i in legs:
         i.update()
+    drawContactTriangle(legs, contact_triangle)
     plt.pause(0.00001)
