@@ -65,6 +65,9 @@ BPinit = 9
 #paused flag, pauses animation
 paused = False
 
+#records time of last pause to offset from T once resumed
+pause_time = 0
+
 def equation(BP):
     return asin(l2*sin(acos((l1**2+l2**2-BP**2)/(2*l1*l2)))/BP)-pi/2
 
@@ -144,7 +147,12 @@ def drawContactTriangle(legs,contact_triangle):
 
 #Pausing using Matplotlib
 def pause_toggle(event):
+    global pause_time
     global paused
+    if paused:
+        pause_time = time()-pause_time
+    else:
+        pause_time = time()
     if event.key == " ":
         paused = not paused
 
@@ -309,6 +317,8 @@ Sfig.canvas.mpl_connect('key_press_event', pause_toggle)
 #main loop
 while True:
     if not paused:
+        st += pause_time*10
+        pause_time = 0
         T=(time()*10-st)*timeMod%50
         if T > 50:
             T = 0
