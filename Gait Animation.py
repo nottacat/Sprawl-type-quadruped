@@ -18,24 +18,35 @@ from matplotlib.patches import Polygon
 
 
 #____________________CONSTANTS____________________
+
+
+'''   these are my original constants
 l1=4.1      #shin length
+l2=11.5     #foot length
+l0=1.16     #thigh length
+bodyr=6.66  #radius of main body (centre of pelvis to hip)
+bodylen=sqrt(2)*bodyr   #length of body from hip to closest hip
+'''
+
+l1=6      #shin length
 l2=11.5     #foot length
 l0=1.16     #thigh length
 bodyr=6.66  #radius of main body (centre of pelvis to hip)
 bodylen=sqrt(2)*bodyr   #length of body from hip to closest hip
 
 #phase displacements for each leg
-nOffs=[0,0.25,0.5,0.75]
-
-H=l2-l1+1                 #pelvis height from z=0
-SW=8                        #distance from foot tip path to hip axis perpendicular to said path [step width]
+nOffs=[0,0.5,0.75,0.25]
+ 
+H=l2-l1+2                  #pelvis height from z=0
+SW=6                        #distance from foot tip path to hip axis perpendicular to said path [step width]
 PL=8                        #length of foot tip path from start to end  [pace length]
-PS=0                        #minimum distance to closest foot path  [pace seperation]
+PS=10                       #minimum distance to closest foot path  [pace seperation]
 theta=-pi/2                 #direction of motion
+RF = H*0.1                  #raised foot height
 
 timeMod=1       #speed of program
 st=time()*10    #start time
-zchange=0.1     #part of n reserved by raising/lowering foot, time taken from moving lowered foot
+zchange=0.04     #part of n reserved by raising/lowering foot, time taken from moving lowered foot
 raisePhase=0.15 #part of n reserved for moving raised foot
 
 colors=['red','green','blue','magenta'] #color of each leg
@@ -51,6 +62,8 @@ allowGazebo = False
 #if recieving math domain error for below function, modify this variable
 BPinit = 9 
 
+#paused flag, pauses animation
+paused = False
 
 def equation(BP):
     return asin(l2*sin(acos((l1**2+l2**2-BP**2)/(2*l1*l2)))/BP)-pi/2
@@ -71,7 +84,7 @@ def formulaSideAngles(d,z,h):
             angle1=pi-angle1+2*atan(d/(h-z))
 
     except Exception as err:        #If failed to publish, error information will be displayed
-        # print(err,'in formulaSideAngles(d,z,h)')
+        print(err,'in formulaSideAngles(d,z,h)')
         angle1,angle2=-pi,-pi
 
     return angle1,angle2
@@ -129,6 +142,11 @@ def drawContactTriangle(legs,contact_triangle):
             [legs[0].foot_coords[1], legs[1].foot_coords[1], legs[2].foot_coords[1],legs[0].foot_coords[1]]
         )
 
+#Pausing using Matplotlib
+def pause_toggle(event):
+    global paused
+    if event.key == " ":
+        paused = not paused
 
 class leg():
     def __init__(self,index):
@@ -170,13 +188,14 @@ class leg():
             self.foot, = Sax.plot([x1, x2], [y1, y2], self.color, linewidth=2)
 
     def update(self):
+        #repeats every 5 seconds
         self.n=(T/50+self.nOff)%1   
 
         self.z=0
         
         if self.n<1-raisePhase:
             if self.n<zchange/2:                        #Smooth foot lower
-                self.z=H*0.4*(1-self.n/(zchange/2))
+                self.z=RF*(1-self.n/(zchange/2))
 
             elif self.n<1-raisePhase-zchange/2:                  #Lowered foot
                 self.z=0
@@ -188,7 +207,7 @@ class leg():
             self.n=self.n/(1-raisePhase)
                 
         else:                                           #Raised foot
-            self.z=H*0.4
+            self.z=RF
             self.n=(1-self.n)/raisePhase
 
         if self.invN:
@@ -283,13 +302,18 @@ legs=[leg(0),leg(1),leg(2),leg(3)]
 #create contact triangle
 contact_triangle, = ax.plot([0,0,0,0],[0,0,0,0],'orange')
 
+#setup pause event
+fig.canvas.mpl_connect('key_press_event', pause_toggle)
+Sfig.canvas.mpl_connect('key_press_event', pause_toggle)
+
 #main loop
 while True:
-    T=(time()*10-st)*timeMod%50
-    if T > 50:
-        T = 0
-        st = time()*10
-    for i in legs:
-        i.update()
-    drawContactTriangle(legs, contact_triangle)
+    if not paused:
+        T=(time()*10-st)*timeMod%50
+        if T > 50:
+            T = 0
+            st = time()*10
+        for i in legs:
+            i.update()
+        drawContactTriangle(legs, contact_triangle)
     plt.pause(0.00001)
