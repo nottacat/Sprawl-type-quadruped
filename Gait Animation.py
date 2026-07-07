@@ -38,7 +38,7 @@ bodylen=sqrt(2)*bodyr   #length of body from hip to closest hip
 nOffs=[0,0.5,0.75,0.25]
  
 H=l2-l1+2                  #pelvis height from z=0
-SW=6                        #distance from foot tip path to hip axis perpendicular to said path [step width]
+SW=4                        #distance from foot tip path to hip axis perpendicular to said path [step width]
 PL=8                        #length of foot tip path from start to end  [pace length]
 PS=10                       #minimum distance to closest foot path  [pace seperation]
 theta=-pi/2                 #direction of motion
@@ -47,10 +47,15 @@ RF = H*0.1                  #raised foot height
 timeMod=1       #speed of program
 st=time()*10    #start time
 zchange=0.04     #part of n reserved by raising/lowering foot, time taken from moving lowered foot
-raisePhase=0.15 #part of n reserved for moving raised foot
+raisePhase=0.1 #part of n reserved for moving raised foot
+
+hip2foot = 0 #define this global
+
+# ---- Precalculate values for optimization ----
+C_sql1l2    = l1 ** 2 + l2 ** 2     #l1**2 + l2**2
+C_2l1l2     = 2*l1*l2               #2*l1*l2
 
 colors=['red','green','blue','magenta'] #color of each leg
-
 
 #Code that will only run with this variable True labelled [M] (unless otherwise clear)
 allowMatplotlib = True
@@ -62,14 +67,16 @@ allowGazebo = False
 #if recieving math domain error for below function, modify this variable
 BPinit = 9 
 
+#[M]
 #paused flag, pauses animation
 paused = False
 
+#[M]
 #records time of last pause to offset from T once resumed
 pause_time = 0
 
 def equation(BP):
-    return asin(l2*sin(acos((l1**2+l2**2-BP**2)/(2*l1*l2)))/BP)-pi/2
+    return asin(l2*sin(acos((C_sql1l2-BP**2)/C_2l1l2))/BP)-pi/2
 
 BP=round(root(lambda BP: equation(BP[0]),BPinit).x[0],3)    #threshhold of angle1 being accurate
 
@@ -77,22 +84,29 @@ BP=round(root(lambda BP: equation(BP[0]),BPinit).x[0],3)    #threshhold of angle
 def dirIndex(theta,index):      #change given index value for given direction (theta) [direction index]
     return (theta*2/pi+index)%4
 
+
 #Calculate angles for knee and ankle
 def formulaSideAngles(d,z,h):
     try:
-        angle2=acos((l1**2+l2**2-(h-z)**2-d**2)/(2*l1*l2))  #knee angle
-    
-        angle1=asin(l2*sin(angle2)/sqrt((h-z)**2+d**2))+atan(d/(h-z))   #ankle angle
+        angle2=acos((C_sql1l2-(h-z)**2-d**2)/C_2l1l2)  #ankle angle
+
+        global hip2foot
+        hip2foot = sqrt(C_sql1l2 -C_2l1l2*cos(angle2)) #required distance from hip joint to foot's tip
+
+        angle1=asin(l2*sin(angle2)/hip2foot)+acos((h-z)/hip2foot)   #knee angle
+
+        
         if sqrt((h-z)**2+d**2)<BP:
             angle1=pi-angle1+2*atan(d/(h-z))
 
-    except Exception as err:        #If failed to publish, error information will be displayed
+    except Exception as err:
         print(err,'in formulaSideAngles(d,z,h)')
         angle1,angle2=-pi,-pi
 
     return angle1,angle2
 
-#Calculate coords for side views of legs   [M]
+#[M]
+#Calculate coords for side views of legs
 def formulaSide(angle1,angle2,h):
 
     x1=(l2-l1)/5+l1*cos(angle1-pi/2)
@@ -119,6 +133,7 @@ def formulaBird(n,ymult,Bmod,z):
 
     return new_bearing+Bmod, new_modulus-l0
 
+#[M]
 #Draw triangle between 3 feet touching ground, if a foot is raised
 def drawContactTriangle(legs,contact_triangle):
     if legs[0].z > 0:
@@ -145,7 +160,8 @@ def drawContactTriangle(legs,contact_triangle):
             [legs[0].foot_coords[1], legs[1].foot_coords[1], legs[2].foot_coords[1],legs[0].foot_coords[1]]
         )
 
-#Pausing using Matplotlib
+#[M]
+#Pausing animation using Matplotlib
 def pause_toggle(event):
     global pause_time
     global paused
